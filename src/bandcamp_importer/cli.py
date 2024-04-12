@@ -17,7 +17,7 @@ CONFIG_DEFAULTS = """
 MEDIA_ROOT=/music
 
 # Where to look for downloaded zip files
-DOWNLOADS = ~/Downloads
+DOWNLOADS=~/Downloads
 
 LOG_LEVEL=INFO
 """
@@ -52,9 +52,8 @@ def main(
     Extract album zip files downloaded from Bandcamp into your media root.
     """
     app_state["config_file"] = config_file
-    load_dotenv(stream=io.StringIO(CONFIG_DEFAULTS))
-    print(f"Loading config from {app_state['config_file']}")
     load_dotenv(app_state["config_file"])
+    load_dotenv(stream=io.StringIO(CONFIG_DEFAULTS))
 
     app_state['MEDIA_ROOT'] = (media_root or Path(os.environ['MEDIA_ROOT'])).expanduser().resolve()
     app_state['DOWNLOADS'] = (downloads or Path(os.environ['DOWNLOADS'])).expanduser().resolve()
