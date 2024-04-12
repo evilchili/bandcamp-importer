@@ -1,5 +1,6 @@
 import io
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -7,8 +8,16 @@ import typer
 from dotenv import load_dotenv
 from rich.logging import RichHandler
 
+from bandcamp_importer import importer
+
 CONFIG_DEFAULTS = """
-# bandcamp-importer Defaults
+# Album Importer Defaults
+
+# Where to store extracted media
+MEDIA_ROOT=/music
+
+# Where to look for downloaded zip files
+DOWNLOADS = ~/Downloads
 
 LOG_LEVEL=INFO
 """
@@ -30,13 +39,25 @@ def main(
         app_state["config_file"],
         help="Path to the bandcamp_importer configuration file",
     ),
+    media_root: Optional[Path] = typer.Option(
+        None,
+        help="The root of your media folder. Defaults to /music, set by $MEDIA_ROOT."
+    ),
+    downloads: Optional[Path] = typer.Option(
+        None,
+        help="The path to your downloads folder."
+    )
 ):
     """
-    Configure the execution environment with global parameters.
+    Extract album zip files downloaded from Bandcamp into your media root.
     """
     app_state["config_file"] = config_file
     load_dotenv(stream=io.StringIO(CONFIG_DEFAULTS))
+    print(f"Loading config from {app_state['config_file']}")
     load_dotenv(app_state["config_file"])
+
+    app_state['MEDIA_ROOT'] = (media_root or Path(os.environ['MEDIA_ROOT'])).expanduser().resolve()
+    app_state['DOWNLOADS'] = (downloads or Path(os.environ['DOWNLOADS'])).expanduser().resolve()
 
     logging.basicConfig(
         format="%(message)s",
@@ -45,13 +66,26 @@ def main(
     )
     app_state["verbose"] = verbose
 
+    logging.debug(f"{app_state = }")
+
     if context.invoked_subcommand is None:
         logger.debug("No command specified; invoking default handler.")
-        run(context)
+        import_album(context)
 
 
-def run(context: typer.Context):
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def import_album(context: typer.Context):
     """
-    The default CLI entrypoint is bandcamp_importer.cli.run().
+    The default command: Extract downloaded zip files into your media root.
     """
-    raise NotImplementedError("Please define bandcamp_importer.cli.run().")
+    file_list = [Path(arg) for arg in context.args]
+    if file_list:
+        paths = importer.import_zip_files(file_list, os.environ['DOWNLOADS'])
+        logger.info(f"Imported {len(paths)}: " + "\n".join([str(p) for p in paths]))
+        print(f"Imported {len(paths)} downloads.")
+        return
+
+    paths = importer.import_from_directory(app_state['DOWNLOADS'], app_state['MEDIA_ROOT'])
+    logger.info(f"Imported {len(paths)} downloads from {app_state['DOWNLOADS']}: " + "\n".join([str(p) for p in paths]))
+    print(f"Imported {len(paths)} downloads from {app_state['DOWNLOADS']}")
+    return

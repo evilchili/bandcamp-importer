@@ -24,7 +24,7 @@ build-backend = "poetry.core.masonry.api"
 
 
 [tool.poetry.scripts]
-bandcamp_importer = "bandcamp_importer.cli:app"
+import-albums = "bandcamp_importer.cli:app"
 
 
 ### SLAM
